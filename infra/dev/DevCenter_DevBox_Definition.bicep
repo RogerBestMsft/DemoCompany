@@ -25,7 +25,7 @@ resource dc 'Microsoft.DevCenter/devcenters@2022-11-11-preview' existing = {
 }
 
 resource gallery 'Microsoft.DevCenter/devcenters/galleries@2022-11-11-preview' existing = {
-  name: galleryName
+  name: 'default' //galleryName
   parent: dc
 }
 
@@ -44,7 +44,7 @@ resource devboxdef 'Microsoft.DevCenter/devcenters/devboxdefinitions@2022-11-11-
       name: sku
     }
     imageReference: {
-      id: '/subscriptions/572b41e6-5c44-486a-84d2-01d6202774ac/resourceGroups/TestRG/providers/Microsoft.DevCenter/devcenters/bravodevcenter/galleries/default/images/microsoftwindowsdesktop_windows-ent-cpc_win11-22h2-ent-cpc-m365' //galleryimage.id //the resource-id of a Microsoft.DevCenter Gallery Image
+      id: galleryimage.id //the resource-id of a Microsoft.DevCenter Gallery Image
     }
     osStorageType: storage
     hibernateSupport: 'Disabled'

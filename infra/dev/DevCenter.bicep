@@ -2,7 +2,7 @@
 // param tenant_id string = 'ec509c4c-6b8f-4558-a7b7-030ff99b57e0'
 @minLength(2)
 @description('The prefix for resource naming.')
-param resource_prefix string = 'alpha'
+param resource_prefix string
 
 // param resourceGroup_name string = 'Alpha_DC'
 @minLength(2)
@@ -10,18 +10,21 @@ param resource_prefix string = 'alpha'
 param location string = resourceGroup().location
 
 @minLength(2)
+@description('The uri for Catalog repo access.')
+param repo_uri string
+
+@minLength(2)
 @description('The token secret for Catalog repo access.')
-param repo_access_token string = ''
+param repo_access_token string
 
 @description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
 param devboxProjectUser string 
 
 @description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
-param devboxProjectAdmin string = ''
+param devboxProjectAdmin string
 
 var devCenter_name = '${resource_prefix}devcenter'
-var devCenter_project_alpha_name = '${resource_prefix}devcenter-project-alpha'
-var devCenter_project_bravo_name = '${resource_prefix}devcenter-project-bravo'
+
 
 resource devcenter_resource 'Microsoft.DevCenter/devcenters@2023-04-01' = {
   name: devCenter_name
@@ -31,65 +34,68 @@ resource devcenter_resource 'Microsoft.DevCenter/devcenters@2023-04-01' = {
   }
 }
 
-// Project Alpha
-resource devcenter_project_alpha_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
-  name: devCenter_project_alpha_name
-  location: location
-  properties: {
-    devCenterId: devcenter_resource.id
-  }
-}
+// var devCenter_project_alpha_name = '${resource_prefix}devcenter-project-alpha'
+// var devCenter_project_bravo_name = '${resource_prefix}devcenter-project-bravo'
 
-var devCenterDevBoxUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '45d50f46-0b78-4001-a660-4198cbe8cd05')
-resource projectAlphaUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: devcenter_project_alpha_resource
-  name: guid(devcenter_project_alpha_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
-  properties: {
-    roleDefinitionId: devCenterDevBoxUserRoleId
-    principalType: 'User'
-    principalId: devboxProjectUser
-  }
-}
+// // Project Alpha
+// resource devcenter_project_alpha_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
+//   name: devCenter_project_alpha_name
+//   location: location
+//   properties: {
+//     devCenterId: devcenter_resource.id
+//   }
+// }
 
-var devCenterDevBoxAdminRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '331c37c6-af14-46d9-b9f4-e1909e1b95a0')
-resource projectAlphaAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
-  scope: devcenter_project_alpha_resource
-  name: guid(devcenter_project_alpha_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
-  properties: {
-    roleDefinitionId: devCenterDevBoxAdminRoleId
-    principalType: 'User'
-    principalId: devboxProjectAdmin
-  }
-}
+// var devCenterDevBoxUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '45d50f46-0b78-4001-a660-4198cbe8cd05')
+// resource projectAlphaUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+//   scope: devcenter_project_alpha_resource
+//   name: guid(devcenter_project_alpha_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
+//   properties: {
+//     roleDefinitionId: devCenterDevBoxUserRoleId
+//     principalType: 'User'
+//     principalId: devboxProjectUser
+//   }
+// }
 
-// Project Bravo
-resource devcenter_project_bravo_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
-  name: devCenter_project_bravo_name
-  location: location
-  properties: {
-    devCenterId: devcenter_resource.id
-  }
-}
+// var devCenterDevBoxAdminRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '331c37c6-af14-46d9-b9f4-e1909e1b95a0')
+// resource projectAlphaAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
+//   scope: devcenter_project_alpha_resource
+//   name: guid(devcenter_project_alpha_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
+//   properties: {
+//     roleDefinitionId: devCenterDevBoxAdminRoleId
+//     principalType: 'User'
+//     principalId: devboxProjectAdmin
+//   }
+// }
 
-resource projectBravoUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: devcenter_project_bravo_resource
-  name: guid(devcenter_project_bravo_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
-  properties: {
-    roleDefinitionId: devCenterDevBoxUserRoleId
-    principalType: 'User'
-    principalId: devboxProjectUser
-  }
-}
+// // Project Bravo
+// resource devcenter_project_bravo_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
+//   name: devCenter_project_bravo_name
+//   location: location
+//   properties: {
+//     devCenterId: devcenter_resource.id
+//   }
+// }
 
-resource projectBravoAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
-  scope: devcenter_project_bravo_resource
-  name: guid(devcenter_project_bravo_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
-  properties: {
-    roleDefinitionId: devCenterDevBoxAdminRoleId
-    principalType: 'User'
-    principalId: devboxProjectAdmin
-  }
-}
+// resource projectBravoUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+//   scope: devcenter_project_bravo_resource
+//   name: guid(devcenter_project_bravo_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
+//   properties: {
+//     roleDefinitionId: devCenterDevBoxUserRoleId
+//     principalType: 'User'
+//     principalId: devboxProjectUser
+//   }
+// }
+
+// resource projectBravoAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
+//   scope: devcenter_project_bravo_resource
+//   name: guid(devcenter_project_bravo_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
+//   properties: {
+//     roleDefinitionId: devCenterDevBoxAdminRoleId
+//     principalType: 'User'
+//     principalId: devboxProjectAdmin
+//   }
+// }
 
 
 // param projects array = ['alpha', 'bravo', 'charlie']
@@ -124,12 +130,19 @@ module catalogModule 'DevCenter_Catalog.bicep' = {
   params: {
     keyvaultName: kvModule.outputs.keyVaultName
     devcenterName: devcenter_resource.name
-    catalogRepoUri: 'https://github.com/RBDDcet/DevCatalogs.git'
-    adeProjectUser: ''
+    catalogRepoUri: repo_uri
     catalogRepoPat: repo_access_token
-    projectTeamName: devcenter_project_alpha_resource.name
   }
 }
+
+module envTypeModule 'DevCenter_EnvironmentType.bicep' = {
+  name: 'devCenterEnvironmentTypeDeploy'
+  params: {
+    devcenterName: devcenter_resource.name
+    environmentName: 'baseEnvironment'
+  }
+}
+
 
 module dbnetModule 'DevCenter_DevBox_Net.bicep' = {
   name: 'devCenterDevBoxNetDeploy'

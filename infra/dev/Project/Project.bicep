@@ -2,15 +2,23 @@
 @description('The location to use for the deployment. defaults to Resource Groups location.')
 param location string = resourceGroup().location
 
-param devCenter_Name string
+@minLength(2)
+@description('The prefix for resource naming.')
+param resource_prefix string = 'echo'
 
-param project_Name string
+param devCenter_Name string = 'echodevcenter'
+
+param project_Name string = 'TestProjectA'
+
+param netConnectionName string = 'echo-dcon-eastus'
+
+param devboxDefinitionName string = 'echodevcenter-win11-ssd_256gb'
 
 @description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
-param devboxProjectUser string 
+param devboxProjectUser string = 'c8307c6a-8539-4540-8e45-e8fa520fd93c'
 
 @description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
-param devboxProjectAdmin string = ''
+param devboxProjectAdmin string = 'c8307c6a-8539-4540-8e45-e8fa520fd93c'
 
 resource devcenter_resource 'Microsoft.DevCenter/devcenters@2023-04-01' existing = {
   name: devCenter_Name  
@@ -44,5 +52,32 @@ resource projectAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' =
     roleDefinitionId: devCenterDevBoxAdminRoleId
     principalType: 'User'
     principalId: devboxProjectAdmin
+  }
+}
+
+module adenetModule 'Project_ADE_Net.bicep' = {
+  name: 'ProjectADENetDeploy'
+  params: {
+    resource_prefix: resource_prefix    
+  }
+}
+
+module envtypeModule 'Project_EnvironmentType.bicep' = {
+  name: 'ProjectEnvTypeDeploy'
+  params: {
+    devcenterName: devCenter_Name
+    projectName: project_Name
+    environmentName: 'ProjectEnv'
+  }
+}
+
+module poolModule 'Project_DevBox_Pool.bicep' = {
+  name: 'ProjectPoolDeploy'
+  params: {
+    devcenterName: devCenter_Name
+    poolName: 'basicPool'
+    projectName: project_Name
+    dbdefinitionName: devboxDefinitionName
+    netconnectName: netConnectionName  
   }
 }
