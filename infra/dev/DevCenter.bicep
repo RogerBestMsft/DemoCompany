@@ -1,168 +1,169 @@
-// param devCenter_subscription_id string = '572b41e6-5c44-486a-84d2-01d6202774ac'
-// param tenant_id string = 'ec509c4c-6b8f-4558-a7b7-030ff99b57e0'
-@minLength(2)
-@description('The prefix for resource naming.')
-param resource_prefix string
-
-// param resourceGroup_name string = 'Alpha_DC'
-@minLength(2)
-@description('The location to use for the deployment. defaults to Resource Groups location.')
+@description('Location of the Dev Center. If none is provided, the resource group location is used.')
 param location string = resourceGroup().location
 
-@minLength(2)
-@description('The uri for Catalog repo access.')
-param repo_uri string
+@minLength(3)
+@maxLength(26)
+@description('Name of the Dev Center')
+param name string
 
-@minLength(2)
-@description('The token secret for Catalog repo access.')
-param repo_access_token string
+param keyVaultName string
 
-@description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
-param devboxProjectUser string 
+param galleryName string
 
-@description('Provide the AzureAd UserId to assign project rbac for (get the current user with az ad signed-in-user show --query id)')
-param devboxProjectAdmin string
+@description('Github uri')
+param githubUri string
 
-var devCenter_name = '${resource_prefix}devcenter'
+@secure()
+@description('Personal Access Token from GitHub with the repo scope')
+param githubPat string
 
+@description('Github path')
+param githubPath string
 
-resource devcenter_resource 'Microsoft.DevCenter/devcenters@2023-04-01' = {
-  name: devCenter_name
+@description('Tags to apply to the resources')
+param tags object = {}
+
+param environmentTypes object = {}
+
+// docs: https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#key-vault-secrets-officer
+var secretsAssignmentId = guid('kvsecretofficer${resourceGroup().id}${keyVaultName}${name}')
+var secretsOfficerRoleResourceId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
+
+var galleryAssignmentId = guid('gallerycont${resourceGroup().id}${galleryName}${name}')
+var galleryContributor = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')
+
+resource devCenter 'Microsoft.DevCenter/devcenters@2023-01-01-preview' = {
+  name: name
   location: location
   identity: {
     type: 'SystemAssigned'
   }
+  tags: tags
 }
 
-// var devCenter_project_alpha_name = '${resource_prefix}devcenter-project-alpha'
-// var devCenter_project_bravo_name = '${resource_prefix}devcenter-project-bravo'
-
-// // Project Alpha
-// resource devcenter_project_alpha_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
-//   name: devCenter_project_alpha_name
-//   location: location
-//   properties: {
-//     devCenterId: devcenter_resource.id
-//   }
-// }
-
-// var devCenterDevBoxUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '45d50f46-0b78-4001-a660-4198cbe8cd05')
-// resource projectAlphaUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-//   scope: devcenter_project_alpha_resource
-//   name: guid(devcenter_project_alpha_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
-//   properties: {
-//     roleDefinitionId: devCenterDevBoxUserRoleId
-//     principalType: 'User'
-//     principalId: devboxProjectUser
-//   }
-// }
-
-// var devCenterDevBoxAdminRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '331c37c6-af14-46d9-b9f4-e1909e1b95a0')
-// resource projectAlphaAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
-//   scope: devcenter_project_alpha_resource
-//   name: guid(devcenter_project_alpha_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
-//   properties: {
-//     roleDefinitionId: devCenterDevBoxAdminRoleId
-//     principalType: 'User'
-//     principalId: devboxProjectAdmin
-//   }
-// }
-
-// // Project Bravo
-// resource devcenter_project_bravo_resource 'Microsoft.DevCenter/projects@2022-11-11-preview' = {
-//   name: devCenter_project_bravo_name
-//   location: location
-//   properties: {
-//     devCenterId: devcenter_resource.id
-//   }
-// }
-
-// resource projectBravoUserRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-//   scope: devcenter_project_bravo_resource
-//   name: guid(devcenter_project_bravo_resource.id, devboxProjectUser, devCenterDevBoxUserRoleId)
-//   properties: {
-//     roleDefinitionId: devCenterDevBoxUserRoleId
-//     principalType: 'User'
-//     principalId: devboxProjectUser
-//   }
-// }
-
-// resource projectBravoAdminRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if(!empty(devboxProjectAdmin)) {
-//   scope: devcenter_project_bravo_resource
-//   name: guid(devcenter_project_bravo_resource.id, devboxProjectAdmin, devCenterDevBoxAdminRoleId)
-//   properties: {
-//     roleDefinitionId: devCenterDevBoxAdminRoleId
-//     principalType: 'User'
-//     principalId: devboxProjectAdmin
-//   }
-// }
-
-
-// param projects array = ['alpha', 'bravo', 'charlie']
-// module projs 'Project/Project.bicep' = [for project in projects :{
-//   name: project
-//   params: {
-//     devCenter_Name: devcenter_resource.name
-//     project_Name: project
-//     devboxProjectUser: devboxProjectUser
-//     devboxProjectAdmin: devboxProjectAdmin
-//   }
-// }] 
-
-module galleryModule 'DevCenter_DevBox_Gallery.bicep' = {
-  name: 'devCenterGalleryDeploy'
+// assign dev center identity owner role on subscription
+module subscriptionAssignment 'subscriptionRoles.bicep' = {
+  name: guid('owner${name}${subscription().subscriptionId}')
+  scope: subscription()
   params: {
-    resource_prefix: resource_prefix
-    devcenterName: devcenter_resource.name    
+    principalId: devCenter.identity.principalId
+    role: 'Owner'
+    principalType: 'ServicePrincipal'
   }
 }
 
-module kvModule 'DevCenter_Keyvault.bicep' = {
-  name: 'devCenterKeyvaultDeploy'
+// assign dev center identity owner role on each environment type subscription
+module envSubscriptionsAssignment 'subscriptionRoles.bicep' = [for envType in items(environmentTypes): {
+  name: guid('owner${name}${envType.key}')
+  scope: subscription(envType.value)
   params: {
-    resource_prefix: resource_prefix
-    keyVaultIPAllowlist: []
+    principalId: devCenter.identity.principalId
+    role: 'Owner'
+    principalType: 'ServicePrincipal'
+  }
+}]
+
+// create the catalog
+resource catalog 'Microsoft.DevCenter/devcenters/catalogs@2023-01-01-preview' = {
+  parent: devCenter
+  name: 'Environments'
+  properties: {
+    gitHub: {
+      uri: githubUri
+      branch: 'main'
+      path: githubPath
+      secretIdentifier: githubPatSecret.properties.secretUri
+    }
   }
 }
 
-module catalogModule 'DevCenter_Catalog.bicep' = {
-  name: 'devCenterCatalogDeploy'
-  params: {
-    keyvaultName: kvModule.outputs.keyVaultName
-    devcenterName: devcenter_resource.name
-    catalogRepoUri: repo_uri
-    catalogRepoPat: repo_access_token
+// create the dev center level environment types
+resource envTypes 'Microsoft.DevCenter/devcenters/environmentTypes@2023-01-01-preview' = [for envType in items(environmentTypes): {
+  parent: devCenter
+  name: envType.key
+  properties: {}
+}]
+
+// ------------------
+// Key Vault
+// ------------------
+
+// create a key vault
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: keyVaultName
+  location: location
+  properties: {
+    enabledForDeployment: true
+    enabledForTemplateDeployment: true
+    enabledForDiskEncryption: false
+    tenantId: tenant().tenantId
+    enableRbacAuthorization: true
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+  }
+  tags: tags
+}
+
+// assign dev center identity secrets officer role on key vault
+resource keyVaultAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: secretsAssignmentId
+  properties: {
+    principalId: devCenter.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: secretsOfficerRoleResourceId
+  }
+  scope: keyVault
+}
+
+// add the github pat token to the key vault
+resource githubPatSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+  name: 'github-pat'
+  parent: keyVault
+  properties: {
+    value: githubPat
+    attributes: {
+      enabled: true
+    }
+  }
+  tags: tags
+}
+
+// ------------------
+// Compute Gallery
+// ------------------
+
+// create a compute gallery
+resource gallery 'Microsoft.Compute/galleries@2022-03-03' = {
+  name: galleryName
+  location: location
+  properties: {
+    description: 'Custom gallery'
   }
 }
 
-module envTypeModule 'DevCenter_EnvironmentType.bicep' = {
-  name: 'devCenterEnvironmentTypeDeploy'
-  params: {
-    devcenterName: devcenter_resource.name
-    environmentName: 'baseEnvironment'
+resource galleryAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: gallery
+  name: galleryAssignmentId
+  properties: {
+    roleDefinitionId: galleryContributor
+    principalType: 'ServicePrincipal'
+    principalId: devCenter.identity.principalId
   }
 }
 
-
-module dbnetModule 'DevCenter_DevBox_Net.bicep' = {
-  name: 'devCenterDevBoxNetDeploy'
-  params: {
-    resource_prefix: resource_prefix
-    devcenterName: devcenter_resource.name
+resource dcgallery 'Microsoft.DevCenter/devcenters/galleries@2023-04-01' = {
+  name: name
+  parent: devCenter
+  properties: {
+    galleryResourceId: gallery.id
   }
+  dependsOn: [
+    galleryAssignment
+  ]
 }
 
-module dbdefModule 'DevCenter_DevBox_Definition.bicep' = {
-  name: 'devCenterDevBoxDefinitionDeploy'
-  params: {
-    devcenterName: devcenter_resource.name
-    galleryName: galleryModule.outputs.name
-  }
-}
-
-module appconfigModule 'DevCenter_AppConfiguration.bicep' = {
-  name: 'devCenterAppConfigurationDeploy'
-  params: {
-    resource_prefix: resource_prefix
-  }
-}
+output devCenterId string = devCenter.id
+output devCenterName string = devCenter.name
+output devCenterIdentity string = devCenter.identity.principalId

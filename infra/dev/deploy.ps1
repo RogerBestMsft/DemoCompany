@@ -1,8 +1,3 @@
-# Login
-# az login
+$outputsp = az ad sp create-for-rbac
 
-
-
-# Create supporting resource with Bicep
-az deployment group create --resource-group TestRG --template-file main.Bicep
-
+az deployment sub create --location eastus --template-file main.bicep --parameters '{ "ciPrincipalId": {"value":"$($outputsp.appId)"}}'
