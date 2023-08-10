@@ -17,6 +17,8 @@ param addressPrefixes array
 param subnetName string = 'default'
 param subnetAddressPrefix string
 
+param vnetIdToPeerTo string
+
 @description('Tags to apply to the resources')
 param tags object = {}
 
@@ -29,6 +31,8 @@ var devCenterGroup = empty(devCenterId) ? '' : first(split(last(split(replace(de
 var devCenterSub = empty(devCenterId) ? '' : first(split(last(split(devCenterId, '/subscriptions/')), '/'))
 
 var networkConnectionName = name
+var networkPeerAName = '${name}_peerA'
+var networkPeerBName = '${name}_peerB'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
   name: name
@@ -74,6 +78,22 @@ module networkAttach 'networkAttach.bicep' = if ((!empty(devCenterId)) && (domai
     networkConnectionId: networkConnection.id
   }
 }
+
+resource peering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-02-01' = if (!empty(vnetIdToPeerTo)) {
+  name: networkPeerAName
+  parent: vnet
+  properties: {
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+    allowVirtualNetworkAccess: true
+    doNotVerifyRemoteGateways: false
+    remoteVirtualNetwork: {
+      id: vnetIdToPeerTo
+    }
+    useRemoteGateways: false
+  }
+}
+
 
 output id string = vnet.id
 output subnet string = subnetName

@@ -1,4 +1,4 @@
-targetScope = 'subscription'
+targetScope = 'tenant'
 
 @description('Name of the thing')
 param name string = 'VanArsdelLTD'
@@ -32,11 +32,32 @@ param githubUri string = 'https://github.com/RBDDcet/DevCatalogs.git'
 //@secure()
 @description('[Environments] Personal Access Token from GitHub with the repo scope')
 //#disable-next-line secure-parameter-default
-param githubPat string
+param githubPat string = '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'
 
 @description('Github Path')
 param githubPath string = '/DevCenter/Catalogs'
 
+@description('Primary subscription')
+param primarySubscription string = '572b41e6-5c44-486a-84d2-01d6202774ac'
+
+@description('Tags to apply to the resources')
+param tags object = {}
+
+@description('[Project] An object with property keys containing the Project name and values containing Subscription and Description properties. See bicep file for example.')
+param projects array = [
+  {
+    name: 'PNL_Alpha_DEV'
+    subscriptionId: '572b41e6-5c44-486a-84d2-01d6202774ac'
+  }
+  {
+    name: 'PNL_Bravo_DEV'
+    subscriptionId: '572b41e6-5c44-486a-84d2-01d6202774ac'
+  }
+  {
+    name: 'PNL_Charlie_DEV'
+    subcriptionId:'572b41e6-5c44-486a-84d2-01d6202774ac'
+  }
+]
 
 @description('[Environments] An object with property keys containing the Environment Type name and values containing Subscription and Description properties. See bicep file for example.')
 param environmentTypes object = {
@@ -45,82 +66,123 @@ param environmentTypes object = {
   Prod: '572b41e6-5c44-486a-84d2-01d6202774ac' // Contoso-Inc Prod
 }
 
-@description('Tags to apply to the resources')
-param tags object = {}
-
 // clean up the keyvault name an add a suffix to ensure it's unique
 var keyVaultNameStart = replace(replace(replace(toLower(trim(name)), ' ', '-'), '_', '-'), '.', '-')
 var keyVaultNameAlmost = length(keyVaultNameStart) <= 24 ? keyVaultNameStart : take(keyVaultNameStart, 24)
-var keyVaultName = '${keyVaultNameAlmost}kvg'
+var keyVaultName = '${keyVaultNameAlmost}kvk'
 
 var vnetNameStart = replace(toLower(trim(name)), ' ', '-')
 var vnetName = '${vnetNameStart}-vnet'
 
-var galleryName = '${keyVaultNameAlmost}galry'
+var galleryName = '${keyVaultNameAlmost}gallery'
 
 // ------------------
 // Resource Groups
 // ------------------
 
-resource group_dc 'Microsoft.Resources/resourceGroups@2022-09-01' = {
-  name: name
-  location: location
-  tags: tags
+module primaryRG 'resourceGroup.bicep' = {
+  scope: subscription(primarySubscription)
+  name: '${name}RG'
+  params: {
+    #disable-next-line BCP334 BCP335
+    name: '${name}RG'
+    location: location
+    tags: tags
+  }
 }
 
-resource group_network 'Microsoft.Resources/resourceGroups@2022-09-01' = {
-  name: '${name}-Network'
-  location: location
-  tags: tags
+module secondRG 'resourceGroup.bicep' = {
+  scope: subscription(projects[0].subscriptionId)
+  name: '${projects[0].name}RG'
+  params: {
+    #disable-next-line BCP334 BCP335
+    name: '${projects[0].name}RG'
+    location: location
+    tags: tags
+  }
 }
 
-resource ade_network 'Microsoft.Resources/resourceGroups@2022-09-01' = {
-  name: '${name}-ADE-Network'
-  location: location
-  tags: tags
-}
+
+// module rgDeploy 'resourceGroup.bicep' = [for projectRG in projects: {
+//   scope: subscription(projectRG.subscriptionId)
+//   name: projectRG.name
+//   params: {
+//     #disable-next-line BCP334 BCP335
+//     name: projectRG.name
+//     location: location
+//     tags: tags
+//   }]
+
+// resource group_dc 'Microsoft.Resources/resourceGroups@2022-09-01' = {
+//   scope: subscription
+//   name: name
+//   location: location
+//   tags: tags
+// }
+
+// resource project_network 'Microsoft.Resources/resourceGroups@2022-09-01' = {
+//   name: '${name}-Network'
+//   location: location
+//   tags: tags
+// }
+
+// resource ade_network 'Microsoft.Resources/resourceGroups@2022-09-01' = {
+//   name: '${name}-ADE-Network'
+//   location: location
+//   tags: tags
+// }
 
 // ------------------
 // Dev Center
 // ------------------
 
-module devCenter 'devcenter.bicep' = {
-  scope: group_dc
-  name: 'devcenter'
-  params: {
-    #disable-next-line BCP334 BCP335
-    name: name
-    keyVaultName: keyVaultName
-    galleryName: galleryName
-    githubUri: githubUri
-    githubPath: githubPath
-    githubPat: githubPat
-    environmentTypes: environmentTypes
-    location: location
-    tags: tags
-  }
-}
+// module devCenter 'devcenter.bicep' = {
+//   scope: subscription(primarySubscription)
+//   name: 'devcenter'
+//   params: {
+//     #disable-next-line BCP334 BCP335
+//     name: name
+//     keyVaultName: keyVaultName
+//     galleryName: galleryName
+//     githubUri: githubUri
+//     githubPath: githubPath
+//     githubPat: githubPat
+//     environmentTypes: environmentTypes
+//     location: location
+//     tags: tags
+//   }
+// }
 
 // ------------------
 // Projects
 // ------------------
 
-module project_primary_app 'project.bicep' = {
-  scope: group_dc
-  name: 'project-primary-app'
-  params: {
-    devCenterName: devCenter.outputs.devCenterName
-    name: 'Primary-App'
-    description: '.NET 6 reference application shown at .NET Conf 2021 featuring ASP.NET Core, Blazor, .NET MAUI, Microservices, and more!'
-    environmentTypes: environmentTypes
-    location: location
-    ciPrincipalId: ciPrincipalId
-    projectAdmins: projectAdmins
-    devBoxUsers: devBoxUsers
-    environmentUsers: environmentUsers
-    tags: tags
-  }
-}
+// module project_primary_app 'project.bicep' = {
+//   scope: group_dc
+//   name: 'project-primary-app'
+//   params: {
+//     devCenterName: devCenter.outputs.devCenterName
+//     name: 'Primary-App'
+//     description: '.NET 6 reference application shown at .NET Conf 2021 featuring ASP.NET Core, Blazor, .NET MAUI, Microservices, and more!'
+//     environmentTypes: environmentTypes
+//     location: location
+//     ciPrincipalId: ciPrincipalId
+//     projectAdmins: projectAdmins
+//     devBoxUsers: devBoxUsers
+//     environmentUsers: environmentUsers
+//     tags: tags
+//   }
+// }
+
+
+// module projectDeploy 'project.bicep' = [for project in items(projects): {
+//   name: project.value
+//   scope: subscription(envType.value)
+//   params: {
+//     principalId: ciPrincipalId
+//     role: 'Reader'
+//     principalType: 'ServicePrincipal'
+//   }
 
 // module project_fabrikam_app 'project.bicep' = {
 //   scope: group_dc
@@ -158,52 +220,55 @@ module project_primary_app 'project.bicep' = {
 // Networks
 // ------------------
 
-module network 'network.bicep' = {
-  scope: group_network
-  name: 'network-${location}'
-  params: {
-    #disable-next-line BCP334 BCP335
-    name: '${vnetName}-${location}' // eastus2
-    addressPrefixes: [ '10.4.0.0/16' ]
-    subnetAddressPrefix: '10.4.0.0/24' // 250 + 5 Azure reserved addresses
-    devCenterId: devCenter.outputs.devCenterId
-    location: location
-    tags: tags
-  }
-}
+// module network 'network.bicep' = {
+//   scope: project_network
+//   name: 'network-${location}'
+//   params: {
+//     #disable-next-line BCP334 BCP335
+//     name: '${vnetName}-${location}' // eastus2
+//     addressPrefixes: [ '10.4.0.0/16' ]
+//     subnetAddressPrefix: '10.4.0.0/24' // 250 + 5 Azure reserved addresses
+//     devCenterId: devCenter.outputs.devCenterId
+//     location: location
+//     vnetIdToPeerTo: network_ade.outputs.id
+//     tags: tags
+//   }
+// }
 
-module network_firewall 'network.bicep' = {
-  scope: group_network
-  name: 'network-${location}-firewall'
-  params: {
-    #disable-next-line BCP334 BCP335
-    name: '${vnetName}-${location}-firewall' // eastus2-firewall
-    addressPrefixes: [ '10.5.0.0/16' ]
-    subnetAddressPrefix: '10.5.0.0/24' // 250 + 5 Azure reserved addresses
-    devCenterId: devCenter.outputs.devCenterId
-    location: location
-    tags: tags
-  }
-}
+// module network_firewall 'network.bicep' = {
+//   scope: project_network
+//   name: 'network-${location}-firewall'
+//   params: {
+//     #disable-next-line BCP334 BCP335
+//     name: '${vnetName}-${location}-firewall' // eastus2-firewall
+//     addressPrefixes: [ '10.5.0.0/16' ]
+//     subnetAddressPrefix: '10.5.0.0/24' // 250 + 5 Azure reserved addresses
+//     devCenterId: devCenter.outputs.devCenterId
+//     location: location
+//     vnetIdToPeerTo: network_ade.outputs.id
+//     tags: tags
+//   }
+// }
 
-module network_ade 'network.bicep' = {
-  scope: ade_network
-  name: 'network-ade'
-  params: {
-    #disable-next-line BCP334 BCP335
-    name: '${vnetName}-${location}'
-    addressPrefixes: [ '10.6.0.0/16' ]
-    subnetAddressPrefix: '10.6.0.0/24' // 250 + 5 Azure reserved addresses
-    #disable-next-line no-hardcoded-location
-    devCenterId: devCenter.outputs.devCenterId
-    domainJoinType: 'None'
-    location: location
-    tags: tags
-  }
-}
+// module network_ade 'network.bicep' = {
+//   scope: ade_network
+//   name: 'network-ade'
+//   params: {
+//     #disable-next-line BCP334 BCP335
+//     name: '${vnetName}-${location}-ade'
+//     addressPrefixes: [ '10.6.0.0/16' ]
+//     subnetAddressPrefix: '10.6.0.0/24' // 250 + 5 Azure reserved addresses
+//     #disable-next-line no-hardcoded-location
+//     devCenterId: devCenter.outputs.devCenterId
+//     domainJoinType: 'None'
+//     location: location
+//     vnetIdToPeerTo: ''
+//     tags: tags
+//   }
+// }
 
 // module network_westus3_paw 'network.bicep' = {
-//   scope: group_network
+//   scope: project_network
 //   name: 'network-westus3-paw'
 //   params: {
 //     #disable-next-line BCP334 BCP335
@@ -218,7 +283,7 @@ module network_ade 'network.bicep' = {
 // }
 
 // module network_westeurope 'network.bicep' = {
-//   scope: group_network
+//   scope: project_network
 //   name: 'network-westeurope'
 //   params: {
 //     #disable-next-line BCP334 BCP335
@@ -236,21 +301,21 @@ module network_ade 'network.bicep' = {
 // DevBox Definitions
 // ------------------
 
-module backend_dev_def 'devboxDefinition.bicep' = {
-  scope: group_dc
-  name: 'def-backend-dev'
-  params: {
-    name: 'Backend-Dev-Definition'
-    compute: '8c32gb'
-    storage: '1024'
-    #disable-next-line BCP334 BCP335
-    devCenterName: devCenter.outputs.devCenterName
-    galleryName: 'default'
-    imageName: 'microsoftvisualstudio_visualstudioplustools_vs-2022-ent-general-win11-m365-gen2'
-    location: location
-    tags: tags
-  }
-}
+// module backend_dev_def 'devboxDefinition.bicep' = {
+//   scope: group_dc
+//   name: 'def-backend-dev'
+//   params: {
+//     name: 'Backend-Dev-Definition'
+//     compute: '16c64gb'
+//     storage: '256'
+//     #disable-next-line BCP334 BCP335
+//     devCenterName: devCenter.outputs.devCenterName
+//     galleryName: 'default'
+//     imageName: 'microsoftvisualstudio_visualstudioplustools_vs-2022-ent-general-win11-m365-gen2'
+//     location: location
+//     tags: tags
+//   }
+// }
 
 // module frontend_dev_def 'devboxDefinition.bicep' = {
 //   scope: group_dc

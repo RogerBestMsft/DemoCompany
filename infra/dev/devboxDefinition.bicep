@@ -28,7 +28,7 @@ param imageVersion string = 'latest'
 @description('The storage in GB used for the Operating System disk of Dev Boxes created using this definition.')
 param storage string = '1024'
 
-@allowed([ '4c16gb', '8c32gb' ])
+@allowed([ '4c16gb', '8c32gb', '16c64gb' ])
 @description('The specs on the of Dev Boxes created using this definition. For example 8c32gb would create dev boxes with 8 vCPUs and 32 GB RAM.')
 param compute string = '8c32gb'
 

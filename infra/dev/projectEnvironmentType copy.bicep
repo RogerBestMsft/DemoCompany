@@ -4,7 +4,7 @@ param name string
 
 param subscriptionId string
 
-param devCenterId string
+param devCenterName string
 
 param projectName string
 
@@ -41,7 +41,7 @@ resource environmentType 'Microsoft.DevCenter/projects/environmentTypes@2023-01-
 }
 
 resource environmentTypeAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid('ade', devCenterId, projectName, name, ciPrincipalId)
+  name: guid('ade', devCenterName, projectName, name, ciPrincipalId)
   properties: {
     // DevCenter Environments User
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '18e40d4e-8d2e-438d-97e1-9528336e149c')
